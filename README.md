@@ -21,6 +21,12 @@ The server listens on `http://localhost:3000` (set `PORT` to change it). Stop it
 | Method | Path      | Description                 |
 | ------ | --------- | --------------------------- |
 | GET    | `/health` | Returns `{ "status": "ok" }` |
+| GET    | `/tasks`  | Lists all tasks             |
+| POST   | `/tasks`  | Creates a task from `{ "title": "..." }` → `201` with the new task |
+
+A task looks like `{ "id": 1, "title": "Buy milk", "completed": false, "createdAt": "2026-11-12T…Z" }`. POST without a non-empty string `title` returns `400` with `{ "error": "title is required" }`.
+
+Tasks are stored in `data/tasks.json` (created on the first POST).
 
 Unknown routes return `404` with `{ "error": "Not found" }`.
 
@@ -35,14 +41,16 @@ Tests use `node:test` and `supertest`, which drive the app in-process — no ser
 ## Roadmap
 
 - [x] Scaffold: README + package.json + Express skeleton (`/health` + JSON 404) with tests
-- [ ] GET/POST `/tasks` with JSON-file storage
+- [x] GET/POST `/tasks` with JSON-file storage
 - [ ] PUT/DELETE `/tasks/:id`
 - [ ] Input validation + consistent error responses
 - [ ] Full test suite + polish
 
 ## Files
 
-- `src/app.js` — `createApp()` builds the Express app (no listening), so tests can use it directly
+- `src/app.js` — `createApp({ dataFile })` builds the Express app (no listening), so tests can use it directly
+- `src/store.js` — `createStore(file)` reads/writes the task list as a JSON file
 - `src/server.js` — starts the app on `PORT`
-- `data/` — where the task JSON file will live (contents are git-ignored)
+- `data/` — where `tasks.json` lives (contents are git-ignored)
 - `test/app.test.js` — tests for `/health` and the 404 handler
+- `test/tasks.test.js` — tests for GET/POST `/tasks`, each using its own temp data file
