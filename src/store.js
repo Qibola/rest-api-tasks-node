@@ -45,7 +45,28 @@ function createStore(file = DEFAULT_FILE) {
     return task;
   }
 
-  return { list, create };
+  // Applies `changes` (title and/or completed) to the task with `id`.
+  // Returns the updated task, or null if there is no such task.
+  function update(id, changes) {
+    const tasks = readAll();
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return null;
+    if (changes.title !== undefined) task.title = changes.title;
+    if (changes.completed !== undefined) task.completed = changes.completed;
+    writeAll(tasks);
+    return task;
+  }
+
+  // Removes the task with `id`. Returns true if a task was removed.
+  function remove(id) {
+    const tasks = readAll();
+    const remaining = tasks.filter((t) => t.id !== id);
+    if (remaining.length === tasks.length) return false;
+    writeAll(remaining);
+    return true;
+  }
+
+  return { list, create, update, remove };
 }
 
 module.exports = { createStore, DEFAULT_FILE };
