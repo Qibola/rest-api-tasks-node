@@ -53,9 +53,15 @@ test('tasks persist to the JSON file across app instances', async (t) => {
 
 test('POST /tasks without a title returns 400', async (t) => {
   const app = createApp({ dataFile: tempDataFile(t) });
-  for (const body of [{}, { title: '' }, { title: '   ' }, { title: 42 }]) {
+  const cases = [
+    [{}, 'title is required'],
+    [{ title: '' }, 'title must be a non-empty string'],
+    [{ title: '   ' }, 'title must be a non-empty string'],
+    [{ title: 42 }, 'title must be a non-empty string'],
+  ];
+  for (const [body, message] of cases) {
     const res = await request(app).post('/tasks').send(body);
     assert.strictEqual(res.status, 400);
-    assert.deepStrictEqual(res.body, { error: 'title is required' });
+    assert.deepStrictEqual(res.body, { error: 'Validation failed', details: [message] });
   }
 });

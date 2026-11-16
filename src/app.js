@@ -2,6 +2,13 @@
 
 const express = require('express');
 const { createStore } = require('./store');
+const { validateTaskBody, parseId } = require('./validate');
+
+// Every error response has the same shape: `{ error }`, plus `details`
+// (a list of messages) when a request failed validation.
+function sendError(res, status, error, details) {
+  res.status(status).json(details ? { error, details } : { error });
+}
 
 // Builds the Express app without starting a server, so tests can
 // drive it in-process with supertest and nothing is left listening.
@@ -20,41 +27,45 @@ function createApp({ dataFile } = {}) {
   });
 
   app.post('/tasks', (req, res) => {
-    const title = req.body && req.body.title;
-    // Bare-minimum check for now; fuller validation is a later roadmap step.
-    if (typeof title !== 'string' || title.trim() === '') {
-      return res.status(400).json({ error: 'title is required' });
-    }
-    res.status(201).json(store.create({ title: title.trim() }));
+    const errors = validateTaskBody(req.body);
+    if (errors.length) return sendError(res, 400, 'Validation failed', errors);
+    res.status(201).json(store.create({ title: req.body.title.trim() }));
   });
 
   app.put('/tasks/:id', (req, res) => {
-    const { title, completed } = req.body || {};
-    // Bare-minimum checks for now; fuller validation is the next roadmap step.
-    if (title !== undefined && (typeof title !== 'string' || title.trim() === '')) {
-      return res.status(400).json({ error: 'title must be a non-empty string' });
-    }
-    if (completed !== undefined && typeof completed !== 'boolean') {
-      return res.status(400).json({ error: 'completed must be a boolean' });
-    }
-    const task = store.update(Number(req.params.id), {
+    const id = parseId(req.params.id);
+    if (id === null) return sendError(res, 400, 'id must be a positive integer');
+    const errors = validateTaskBody(req.body, { partial: true });
+    if (errors.length) return sendError(res, 400, 'Validation failed', errors);
+    const { title, completed } = req.body;
+    const task = store.update(id, {
       title: title === undefined ? undefined : title.trim(),
       completed,
     });
-    if (!task) return res.status(404).json({ error: 'Task not found' });
+    if (!task) return sendError(res, 404, 'Task not found');
     res.json(task);
   });
 
   app.delete('/tasks/:id', (req, res) => {
-    if (!store.remove(Number(req.params.id))) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
+    const id = parseId(req.params.id);
+    if (id === null) return sendError(res, 400, 'id must be a positive integer');
+    if (!store.remove(id)) return sendError(res, 404, 'Task not found');
     res.status(204).end();
   });
 
   // Anything that didn't match a route above.
   app.use((req, res) => {
-    res.status(404).json({ error: 'Not found' });
+    sendError(res, 404, 'Not found');
+  });
+
+  // Errors thrown by middleware or routes. Express recognises an error
+  // handler by its four arguments, so `next` must stay even though unused.
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    if (err.type === 'entity.parse.failed') return sendError(res, 400, 'Malformed JSON body');
+    if (err.type === 'entity.too.large') return sendError(res, 413, 'Request body too large');
+    console.error(err);
+    sendError(res, 500, 'Internal server error');
   });
 
   return app;
