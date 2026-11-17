@@ -22,7 +22,7 @@ The server listens on `http://localhost:3000` (set `PORT` to change it). Stop it
 | ------ | --------- | --------------------------- |
 | GET    | `/health` | Returns `{ "status": "ok" }` |
 | GET    | `/tasks`  | Lists all tasks             |
-| POST   | `/tasks`  | Creates a task from `{ "title": "..." }` → `201` with the new task |
+| POST   | `/tasks`  | Creates a task from `{ "title": "...", "completed"?: bool }` → `201` with the new task |
 | PUT    | `/tasks/:id` | Updates `title` and/or `completed` → `200` with the updated task |
 | DELETE | `/tasks/:id` | Deletes the task → `204` with no body |
 
@@ -41,7 +41,7 @@ Every error response is JSON with the same shape: `{ "error": "..." }`, plus a `
 - Any other field (e.g. `id`) is rejected with `unknown field: <name>`.
 - `:id` must be a positive integer, otherwise `400` with `{ "error": "id must be a positive integer" }`.
 - PUT and DELETE return `404` with `{ "error": "Task not found" }` when no task has that id.
-- A body that isn't valid JSON returns `400` with `{ "error": "Malformed JSON body" }`; unexpected failures return `500` with `{ "error": "Internal server error" }`.
+- A body that isn't valid JSON returns `400` with `{ "error": "Malformed JSON body" }`; a body over 100 kb returns `413` with `{ "error": "Request body too large" }`; unexpected failures (e.g. a corrupt `tasks.json`) return `500` with `{ "error": "Internal server error" }`.
 
 Tasks are stored in `data/tasks.json` (created on the first POST).
 
@@ -53,7 +53,13 @@ Unknown routes return `404` with `{ "error": "Not found" }`.
 npm test
 ```
 
-Tests use `node:test` and `supertest`, which drive the app in-process — no server is started.
+Tests use `node:test` and `supertest`, which drive the app in-process — no server is started. Each test writes to its own temp data file, so `data/tasks.json` is never touched.
+
+For a line/branch coverage report:
+
+```bash
+npm run test:coverage
+```
 
 ## Roadmap
 
@@ -61,7 +67,7 @@ Tests use `node:test` and `supertest`, which drive the app in-process — no ser
 - [x] GET/POST `/tasks` with JSON-file storage
 - [x] PUT/DELETE `/tasks/:id`
 - [x] Input validation + consistent error responses
-- [ ] Full test suite + polish
+- [x] Full test suite + polish
 
 ## Files
 
@@ -74,3 +80,5 @@ Tests use `node:test` and `supertest`, which drive the app in-process — no ser
 - `test/tasks.test.js` — tests for GET/POST `/tasks`, each using its own temp data file
 - `test/task-by-id.test.js` — tests for PUT/DELETE `/tasks/:id`
 - `test/validation.test.js` — tests for the validators, error shape, bad ids and malformed JSON
+- `test/store.test.js` — unit tests for the JSON-file store on its own
+- `test/lifecycle.test.js` — end-to-end create → update → delete flow, plus 413 and 500 responses

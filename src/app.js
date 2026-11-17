@@ -29,7 +29,8 @@ function createApp({ dataFile } = {}) {
   app.post('/tasks', (req, res) => {
     const errors = validateTaskBody(req.body);
     if (errors.length) return sendError(res, 400, 'Validation failed', errors);
-    res.status(201).json(store.create({ title: req.body.title.trim() }));
+    const { title, completed = false } = req.body;
+    res.status(201).json(store.create({ title: title.trim(), completed }));
   });
 
   app.put('/tasks/:id', (req, res) => {

@@ -31,13 +31,13 @@ function createStore(file = DEFAULT_FILE) {
     return readAll();
   }
 
-  function create({ title }) {
+  function create({ title, completed = false }) {
     const tasks = readAll();
     const nextId = tasks.reduce((max, t) => Math.max(max, t.id), 0) + 1;
     const task = {
       id: nextId,
       title,
-      completed: false,
+      completed,
       createdAt: new Date().toISOString(),
     };
     tasks.push(task);
